@@ -117,7 +117,7 @@ def main():
 
 
 if __name__ == '__main__':
-    vars_ = (0,'thomas_rudge@gmx.com','popper99')#sys.argv
+    vars_ = sys.argv
 
     if not vars_:
         sys.exit()
