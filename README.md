@@ -13,4 +13,9 @@ The script can be called from a batch file like the one below.
 //TODO
 
 * Add more logging
-* Add more messages
+
+
+Dependencies
+```python
+pip install robobrowser
+```

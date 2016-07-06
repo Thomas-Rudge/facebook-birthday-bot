@@ -1,3 +1,4 @@
+#! python3
 #-------------------------------------------------------------------------------
 # Name:        facebook-birthday-bot
 # Purpose:     Automatically checks your facebook notifications for
@@ -10,7 +11,7 @@
 #-------------------------------------------------------------------------------
 
 from robobrowser import RoboBrowser as robo
-import logging, re, datetime, sys
+import logging, re, datetime, sys, random
 
 
 def open_page(url):
@@ -47,6 +48,10 @@ def get_birthday_notifications(browser):
     link_pattern = re.compile(r'((Today is ).+(s birthday))', re.IGNORECASE)
     bday_links = browser.get_links(link_pattern)
 
+    if not bday_links:
+        link_pattern = re.compile(r'(have birthdays today.)')
+        bday_links = browser.get_links(link_pattern)
+
     return bday_links
 
 
@@ -69,9 +74,10 @@ def link_valid(link):
     return False
 
 
-def send_greetings(browser, bdays):
+def send_greetings(browser, bdays, messages):
     '''
-    The function iterates through the links in 'bdays' and posts a message
+    The function iterates through the links in 'bdays' and posts
+    a message from taken randomly from the list of messages.
     '''
     message = 'Happy Birthday!'
 
@@ -80,17 +86,23 @@ def send_greetings(browser, bdays):
             ## Go to the friends page
             browser.follow_link(link)
             ## Get all forms because the post form has no id
-            forms = browser.get_forms()
-            ## The first form is the searchbar
-            ## Change the content of the post form
-            forms[1]['xc_message'] = message
-            ## This will mimic a button press on the post input element
-            submit_field = forms[1]['view_post']
-            ## Now submit the message
-            browser.submit_form(forms[1],submit=submit_field)
+            forms = browser.get_forms(method='post')
+
+            for form in forms:
+                try:
+                    form['xc_message'] = random.choice(messages)
+                    ## This will mimic a button press on the post input element
+                    submit_field = form['view_post']
+                except:
+                    form['message'] = random.choice(messages)
+                    ## This will mimic a button press on the post input element
+                    submit_field = form['post']
+
+                browser.submit_form(form, submit=submit_field)
+
 
 def main():
-    global browser, page_url
+    global browser, page_url, messages
 
     browser = open_page(page_url)
     browser = login(browser, email, pwd)
@@ -99,10 +111,13 @@ def main():
     if not birthdays:
         sys.exit()
 
+    send_greetings(browser, birthdays, messages)
+
+    sys.exit()
 
 
 if __name__ == '__main__':
-    vars_ = sys.argv
+    vars_ = (0,'thomas_rudge@gmx.com','popper99')#sys.argv
 
     if not vars_:
         sys.exit()
@@ -113,6 +128,12 @@ if __name__ == '__main__':
     page_url = 'https://www.facebook.com/login'
     browser = None
     date = datetime.datetime.today()
+    messages = ('Happy birthday!',
+                'Hope you have a great birthday!',
+                'Happy birthday 😀',
+                'Happy birthday, have a great day!',
+                '🎂Happy Birthday 🎂',
+                'Happy birthday, have a good one')
     ## Set logging
     log = True
     logfile = False
