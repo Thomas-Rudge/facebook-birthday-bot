@@ -6,6 +6,7 @@
 # Author:      Thomas Rudge
 #
 # Created:     5th July 2016
+# Modified:    7th July 2016
 # Copyright:   (c) Thomas Rudge
 # Licence:     MIT
 #-------------------------------------------------------------------------------
@@ -13,137 +14,130 @@
 from robobrowser import RoboBrowser as robo
 import logging, re, datetime, sys, random
 
+class fb_bot:
 
-def open_page(url):
-    '''
-    This function will start up the browser on the given url
-    '''
-    browser = robo(history=True)
-    browser.open(url)
+    def __init__(self, email, pwd, messages, log=False, logfile=False):
+        self.email       = email
+        self.pwd         = pwd
+        self.messages    = messages
+        self.log         = log
+        self.logfile     = logfile
+        self.browser     = None
+        self.pg_url      = 'https://www.facebook.com/login'
+        self.pg_url_ntfy = 'https://m.facebook.com/notifications'
+        self.date        = datetime.datetime.today()
 
-    return browser
+        if not log:
+            logging.disable(logging.CRITICAL)
+        elif logfile:
+            logging.basicConfig(filename='%s_fbBdayBot_logfile.txt' % str(self.date.date()),
+                                level=logging.DEBUG, format=' %(asctime)s - %(levelname)s - %(message)s')
+        else:
+            logging.basicConfig(level=logging.DEBUG, format=' %(asctime)s - %(levelname)s - %(message)s')
 
+    def start(self):
+        self.open_page()
+        self.login()
+        notifications = self.get_birthday_notifications()
 
-def login(browser, email, pwd):
-    '''
-    Logs into facebook
-    '''
-    form = browser.get_form('login_form')
-    form['email'] = email
-    form['pass'] = pwd
-    browser.submit_form(form)
+        if notifications:
+            self.send_greetings(notifications)
 
-    return browser
+    def open_page(self):
+        self.browser = robo(history=True)
+        self.browser.open(self.pg_url)
 
+    def login(self):
+        '''
+        Logs into facebook
+        '''
+        form = self.browser.get_form('login_form')
+        form['email'] = self.email
+        form['pass'] = self.pwd
+        self.browser.submit_form(form)
 
-def get_birthday_notifications(browser):
-    '''
-    This function will take the browser to the page...
+    def get_birthday_notifications(self):
+        '''
+        This function will take the browser to the page...
 
-       'https://m.facebook.com/notifications'
+           'https://m.facebook.com/notifications'
 
-    ...and return a list of links that relate to birthdays.
-    '''
-    browser.open('https://m.facebook.com/notifications')
-    link_pattern = re.compile(r'((Today is ).+(s birthday))', re.IGNORECASE)
-    bday_links = browser.get_links(link_pattern)
+        ...and return a list of links that relate to birthdays.
+        '''
+        self.browser.open(self.pg_url_ntfy)
+        link_pattern = re.compile(r'((Today is ).+(s birthday))', re.IGNORECASE)
+        bday_links = self.browser.get_links(link_pattern)
 
-    if not bday_links:
-        link_pattern = re.compile(r'(have birthdays today.)')
-        bday_links = browser.get_links(link_pattern)
+        if not bday_links:
+            link_pattern = re.compile(r'(have birthdays today.)')
+            bday_links = self.browser.get_links(link_pattern)
 
-    return bday_links
+        return bday_links
 
+    def link_valid(self, link):
+        '''
+        Takes the unix timestamp in the link and returns True if it is from today, else False.
+        '''
+        epoch_start = datetime.datetime(1970, 1, 1)
+        # Get the 10 digit unix time from the link
+        epoch_ptn = re.compile(r'[0-9]{10}')
+        link = str(link)
+        epoch = re.search(epoch_ptn, link)
 
-def link_valid(link):
-    '''
-    Takes the unix timestamp in the link and returns True if it is from today, else False.
-    '''
-    epoch_start = datetime.datetime(1970, 1, 1)
-    ## Get the 10 digit unix time from the link
-    epoch_ptn = re.compile(r'[0-9]{10}')
-    link = str(link)
-    epoch = re.search(epoch_ptn, link)
+        if epoch:
+            epoch = int(epoch.group())
 
-    if epoch:
-        epoch = int(epoch.group())
+            if epoch_start.date() + datetime.timedelta(0, epoch) == self.date.date():
+                return True
 
-        if epoch_start.date() + datetime.timedelta(0, epoch) == datetime.datetime.today().date():
-            return True
+        return False
 
-    return False
+    def send_greetings(self, bdays):
+        '''
+        The function iterates through the links in 'bdays' and posts
+        a message from taken randomly from the list of messages.
+        '''
+        message = 'Happy Birthday!'
 
+        for link in bdays:
+            if self.link_valid(link):
+                # Go to the friends page
+                self.browser.follow_link(link)
+                # Get all forms because the post form has no id
+                forms = self.browser.get_forms(method='post')
 
-def send_greetings(browser, bdays, messages):
-    '''
-    The function iterates through the links in 'bdays' and posts
-    a message from taken randomly from the list of messages.
-    '''
-    message = 'Happy Birthday!'
+                for form in forms:
+                    try:
+                        form['xc_message'] = random.choice(self.messages)
+                        # This will mimic a button press on the post input element
+                        submit_field = form['view_post']
+                    except:
+                        form['message'] = random.choice(self.messages)
+                        # This will mimic a button press on the post input element
+                        submit_field = form['post']
 
-    for link in bdays:
-        if link_valid(link):
-            ## Go to the friends page
-            browser.follow_link(link)
-            ## Get all forms because the post form has no id
-            forms = browser.get_forms(method='post')
-
-            for form in forms:
-                try:
-                    form['xc_message'] = random.choice(messages)
-                    ## This will mimic a button press on the post input element
-                    submit_field = form['view_post']
-                except:
-                    form['message'] = random.choice(messages)
-                    ## This will mimic a button press on the post input element
-                    submit_field = form['post']
-
-                browser.submit_form(form, submit=submit_field)
-
-
-def main():
-    global browser, page_url, messages
-
-    browser = open_page(page_url)
-    browser = login(browser, email, pwd)
-    birthdays = get_birthday_notifications(browser)
-
-    if not birthdays:
-        sys.exit()
-
-    send_greetings(browser, birthdays, messages)
-
-    sys.exit()
+                    self.browser.submit_form(form, submit=submit_field)
 
 
 if __name__ == '__main__':
+    # Expects to be started form a batch file
     vars_ = sys.argv
 
     if not vars_:
         sys.exit()
 
-    email = vars_[1]
-    pwd = vars_[2]
-    ## Set globals
-    page_url = 'https://www.facebook.com/login'
-    browser = None
-    date = datetime.datetime.today()
-    messages = ('Happy birthday!',
-                'Hope you have a great birthday!',
-                'Happy birthday 😀',
-                'Happy birthday, have a great day!',
-                '🎂Happy Birthday 🎂',
-                'Happy birthday, have a good one')
-    ## Set logging
-    log = True
-    logfile = False
+    em = vars_[1]
+    pw = vars_[2]
 
-    if not log:
-        logging.disable(logging.CRITICAL)
-    elif logfile:
-        logging.basicConfig(filename='%s_fbBdayBot_logfile.txt' % str(date.date()),
-                            level=logging.DEBUG, format=' %(asctime)s - %(levelname)s - %(message)s')
-    else:
-        logging.basicConfig(level=logging.DEBUG, format=' %(asctime)s - %(levelname)s - %(message)s')
+    msgs = ('Happy birthday!',
+            'Hope you have a great birthday!',
+            'Happy birthday  \u263A',
+            'Happy birthday, have a great day!',
+            '\U0001F382 Happy Birthday \U0001F382 ',
+            'Happy birthday, have a good one',
+            '\U0001F389 \U0001F38A \U0001F389 Happy Birthday  \U0001F389  \U0001F38A  \U0001F389',
+            '\U0001F381 Happy Birthday \U0001F381 ')
 
-    main()
+    fb_bot(em, pw, msgs, False, False).start()
+
+    sys.exit()
