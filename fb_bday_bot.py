@@ -12,7 +12,7 @@
 #-------------------------------------------------------------------------------
 
 from robobrowser import RoboBrowser as robo
-import logging, re, datetime, sys, random
+import logging, re, datetime, sys, random, traceback
 
 class fb_bot:
 
@@ -27,15 +27,18 @@ class fb_bot:
         self.pg_url_ntfy = 'https://m.facebook.com/notifications'
         self.date        = datetime.datetime.today()
 
-        if not log:
-            logging.disable(logging.CRITICAL)
-        elif logfile:
+        # Set the logging settings based on the log flags
+        if self.logfile:
             logging.basicConfig(filename='%s_fbBdayBot_logfile.txt' % str(self.date.date()),
                                 level=logging.DEBUG, format=' %(asctime)s - %(levelname)s - %(message)s')
         else:
             logging.basicConfig(level=logging.DEBUG, format=' %(asctime)s - %(levelname)s - %(message)s')
 
+        if not self.log:
+            logging.disable(logging.CRITICAL)
+
     def start(self):
+        logging.debug('Start triggered.')
         self.open_page()
         self.login()
         notifications = self.get_birthday_notifications()
@@ -43,18 +46,35 @@ class fb_bot:
         if notifications:
             self.send_greetings(notifications)
 
+        logging.debug('Start ends.')
+
     def open_page(self):
-        self.browser = robo(history=True)
-        self.browser.open(self.pg_url)
+        logging.debug('Initating browser and opening main page.')
+
+        try:
+            self.browser = robo(history=True, parser="lxml")
+            self.browser.open(self.pg_url)
+        except:
+            logging.error(traceback.format_exc())
 
     def login(self):
         '''
         Logs into facebook
         '''
-        form = self.browser.get_form('login_form')
-        form['email'] = self.email
-        form['pass'] = self.pwd
-        self.browser.submit_form(form)
+        logging.debug('Logging into Facebook.')
+        form_id = 'login_form'
+
+        try:
+            form = self.browser.get_form(form_id)
+
+            if not form:
+                raise Exception("Form with id '%s' not found." % form_id)
+
+            form['email'] = self.email
+            form['pass']  = self.pwd
+            self.browser.submit_form(form)
+        except:
+            logging.error(traceback.format_exc())
 
     def get_birthday_notifications(self):
         '''
@@ -64,13 +84,25 @@ class fb_bot:
 
         ...and return a list of links that relate to birthdays.
         '''
-        self.browser.open(self.pg_url_ntfy)
-        link_pattern = re.compile(r'((Today is ).+(s birthday))', re.IGNORECASE)
-        bday_links = self.browser.get_links(link_pattern)
+        logging.debug('Fetching birthday notifications.')
+
+        try:
+            self.browser.open(self.pg_url_ntfy)
+            link_pattern = re.compile(r'((Today is ).+(s birthday))', re.IGNORECASE)
+            bday_links = self.browser.get_links(link_pattern)
+        except:
+            logging.error(traceback.format_exc())
 
         if not bday_links:
-            link_pattern = re.compile(r'(have birthdays today.)')
-            bday_links = self.browser.get_links(link_pattern)
+            logging.debug('Single person notification not found, trying multi.')
+
+            try:
+                link_pattern = re.compile(r'(have birthdays today.)')
+                bday_links = self.browser.get_links(link_pattern)
+            except:
+                logging.error(traceback.format_exc())
+
+        logging.debug('%s birthday notifications found.' % str(len(bday_links)))
 
         return bday_links
 
@@ -78,6 +110,8 @@ class fb_bot:
         '''
         Takes the unix timestamp in the link and returns True if it is from today, else False.
         '''
+        logging.debug('Check validity of link: %s' % str(link))
+
         epoch_start = datetime.datetime(1970, 1, 1)
         # Get the 10 digit unix time from the link
         epoch_ptn = re.compile(r'[0-9]{10}')
@@ -85,10 +119,14 @@ class fb_bot:
         epoch = re.search(epoch_ptn, link)
 
         if epoch:
+            logging.debug('Unix timestamp found: %s' % epoch)
             epoch = int(epoch.group())
 
             if epoch_start.date() + datetime.timedelta(0, epoch) == self.date.date():
+                logging.debug('Link date is valid')
                 return True
+
+        logging.debug('Link date is valid')
 
         return False
 
@@ -97,26 +135,38 @@ class fb_bot:
         The function iterates through the links in 'bdays' and posts
         a message from taken randomly from the list of messages.
         '''
-        message = 'Happy Birthday!'
+        logging.debug('Start sending messages.')
 
         for link in bdays:
             if self.link_valid(link):
-                # Go to the friends page
-                self.browser.follow_link(link)
-                # Get all forms because the post form has no id
-                forms = self.browser.get_forms(method='post')
+                try:
+                    # Go to the friends page
+                    self.browser.follow_link(link)
+                    # Get all forms because the post form has no id
+                    forms = self.browser.get_forms(method='post')
+                except:
+                    logging.error(traceback.format_exc())
+                    continue
 
                 for form in forms:
+                    logging.debug('Attempting form.')
+
                     try:
                         form['xc_message'] = random.choice(self.messages)
                         # This will mimic a button press on the post input element
                         submit_field = form['view_post']
                     except:
-                        form['message'] = random.choice(self.messages)
-                        # This will mimic a button press on the post input element
-                        submit_field = form['post']
-
-                    self.browser.submit_form(form, submit=submit_field)
+                        try:
+                            form['message'] = random.choice(self.messages)
+                            # This will mimic a button press on the post input element
+                            submit_field = form['post']
+                        except:
+                            logging.error(traceback.format_exc())
+                    try:
+                        self.browser.submit_form(form, submit=submit_field)
+                        logging.debug('Form submitted.')
+                    except:
+                        logging.error(traceback.format_exc())
 
 
 if __name__ == '__main__':
@@ -138,6 +188,6 @@ if __name__ == '__main__':
             '\U0001F389 \U0001F38A \U0001F389 Happy Birthday  \U0001F389  \U0001F38A  \U0001F389',
             '\U0001F381 Happy Birthday \U0001F381 ')
 
-    fb_bot(em, pw, msgs, False, False).start()
+    fb_bot(em, pw, msgs, True, False).start()
 
     sys.exit()
