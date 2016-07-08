@@ -138,35 +138,39 @@ class fb_bot:
         logging.debug('Start sending messages.')
 
         for link in bdays:
-            if self.link_valid(link):
+
+            # Skip if not valid
+            if not self.link_valid(link):
+                continue
+
+            try:
+                # Go to the friends page
+                self.browser.follow_link(link)
+                # Get all forms because the post form has no id
+                forms = self.browser.get_forms(method='post')
+            except:
+                logging.error(traceback.format_exc())
+                continue
+
+            for form in forms:
+                logging.debug('Attempting form.')
+
                 try:
-                    # Go to the friends page
-                    self.browser.follow_link(link)
-                    # Get all forms because the post form has no id
-                    forms = self.browser.get_forms(method='post')
+                    form['xc_message'] = random.choice(self.messages)
+                    # This will mimic a button press on the post input element
+                    submit_field = form['view_post']
                 except:
-                    logging.error(traceback.format_exc())
-                    continue
-
-                for form in forms:
-                    logging.debug('Attempting form.')
-
                     try:
-                        form['xc_message'] = random.choice(self.messages)
+                        form['message'] = random.choice(self.messages)
                         # This will mimic a button press on the post input element
-                        submit_field = form['view_post']
-                    except:
-                        try:
-                            form['message'] = random.choice(self.messages)
-                            # This will mimic a button press on the post input element
-                            submit_field = form['post']
-                        except:
-                            logging.error(traceback.format_exc())
-                    try:
-                        self.browser.submit_form(form, submit=submit_field)
-                        logging.debug('Form submitted.')
+                        submit_field = form['post']
                     except:
                         logging.error(traceback.format_exc())
+                try:
+                    self.browser.submit_form(form, submit=submit_field)
+                    logging.debug('Form submitted.')
+                except:
+                    logging.error(traceback.format_exc())
 
 
 if __name__ == '__main__':
