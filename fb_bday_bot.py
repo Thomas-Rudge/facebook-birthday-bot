@@ -6,7 +6,7 @@
 # Author:      Thomas Rudge
 #
 # Created:     5th July 2016
-# Modified:    7th July 2016
+# Modified:    9th July 2016
 # Copyright:   (c) Thomas Rudge
 # Licence:     MIT
 #-------------------------------------------------------------------------------
@@ -14,18 +14,36 @@
 from robobrowser import RoboBrowser as robo
 import logging, re, datetime, sys, random, traceback
 
-class fb_bot:
+class facebookBirthdayBot:
 
-    def __init__(self, email, pwd, messages, log=False, logfile=False):
-        self.email       = email
-        self.pwd         = pwd
-        self.messages    = messages
-        self.log         = log
-        self.logfile     = logfile
-        self.browser     = None
-        self.pg_url      = 'https://www.facebook.com/login'
-        self.pg_url_ntfy = 'https://m.facebook.com/notifications'
-        self.date        = datetime.datetime.today()
+    def __init__(self, email, password, **kwargs):
+        self.email         = email
+        self.password      = password
+        self.messages      = None
+        self.log           = False
+        self.logfile       = False
+        self.browser       = None
+        self.fb_url_login  = 'https://www.facebook.com/login'
+        self.fb_url_notifs = 'https://m.facebook.com/notifications'
+        self.date          = datetime.datetime.today()
+        # Handle keyword arguments for logging and messages
+        if 'log' in kwargs:
+            self.log = kwargs['log']
+
+        if 'logfile' in kwargs:
+            self.logfile = kwargs['logfile']
+
+        if 'messages' in kwargs:
+            self.messages = kwargs['messages']
+        else:
+            self.messages = ('Happy birthday!',
+                              'Hope you have a great birthday!',
+                              'Happy birthday  \u263A',
+                              'Happy birthday, have a great day!',
+                              '\U0001F382 Happy Birthday \U0001F382 ',
+                              'Happy birthday, have a good one',
+                              '\U0001F389 \U0001F38A \U0001F389 Happy Birthday  \U0001F389  \U0001F38A  \U0001F389',
+                              '\U0001F381 Happy Birthday \U0001F381 ')
 
         # Set the logging settings based on the log flags
         if self.logfile:
@@ -53,7 +71,7 @@ class fb_bot:
 
         try:
             self.browser = robo(history=True, parser="lxml")
-            self.browser.open(self.pg_url)
+            self.browser.open(self.fb_url_login)
         except:
             logging.error(traceback.format_exc())
 
@@ -71,7 +89,7 @@ class fb_bot:
                 raise Exception("Form with id '%s' not found." % form_id)
 
             form['email'] = self.email
-            form['pass']  = self.pwd
+            form['pass']  = self.password
             self.browser.submit_form(form)
         except:
             logging.error(traceback.format_exc())
@@ -87,7 +105,7 @@ class fb_bot:
         logging.debug('Fetching birthday notifications.')
 
         try:
-            self.browser.open(self.pg_url_ntfy)
+            self.browser.open(self.fb_url_notifs)
             link_pattern = re.compile(r'((Today is ).+(s birthday))', re.IGNORECASE)
             bday_links = self.browser.get_links(link_pattern)
         except:
@@ -180,18 +198,9 @@ if __name__ == '__main__':
     if not vars_:
         sys.exit()
 
-    em = vars_[1]
-    pw = vars_[2]
+    email_ = vars_[1]
+    password_ = vars_[2]
 
-    msgs = ('Happy birthday!',
-            'Hope you have a great birthday!',
-            'Happy birthday  \u263A',
-            'Happy birthday, have a great day!',
-            '\U0001F382 Happy Birthday \U0001F382 ',
-            'Happy birthday, have a good one',
-            '\U0001F389 \U0001F38A \U0001F389 Happy Birthday  \U0001F389  \U0001F38A  \U0001F389',
-            '\U0001F381 Happy Birthday \U0001F381 ')
-
-    fb_bot(em, pw, msgs, True, False).start()
+    facebookBirthdayBot(email_, password_, log=True).start()
 
     sys.exit()

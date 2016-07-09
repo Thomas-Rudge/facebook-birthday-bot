@@ -12,21 +12,21 @@ pip install robobrowser
 ### How it works.
 
 ```python
-import fb_bday_bot as fbot
+>>> from fb_bday_bot import facebookBirthdayBot as fbot
 
 # Launch the birthday bot in a single line.
-fbot(username, password, messages).start()
+>>> fbot(username, password, messages).start()
 
 # Logging is inactive by default.
 # To change logging pass two extra arguments to fbot.
 # The first boolean turns logging on and off.
 # The second boolean determines whether a log file is generated in the working direcotry.
-fbot(username, password, messages, True, True).start()
+>>> fbot(username, password, messages, True, True).start()
 ```
 You can get an instance of the bot and trigger each stage individually.
 
 ```python
->>> import fb_bday_bot as fbot
+>>> from fb_bday_bot import facebookBirthdayBot as fbot
 
 # Get an instance of the class.
 >>> my_bot = fbot(username, password, messages)
