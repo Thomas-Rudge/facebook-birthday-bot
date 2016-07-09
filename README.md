@@ -15,13 +15,19 @@ pip install robobrowser
 >>> from fb_bday_bot import facebookBirthdayBot as fbot
 
 # Launch the birthday bot in a single line.
->>> fbot(username, password, messages).start()
+>>> fbot(username, password).start()
 
 # Logging is inactive by default.
-# To change logging pass two extra arguments to fbot.
-# The first boolean turns logging on and off.
-# The second boolean determines whether a log file is generated in the working direcotry.
->>> fbot(username, password, messages, True, True).start()
+# To change logging pass the keyword arguments log and logfile.
+# Log is a boolean that turns logging on and off.
+# Logfile determines whether or not a logfile is written in the working directory.
+>>> fbot(username, password, log=True, logfile=True).start()
+
+# The bot will randomly choose from a list of default messages.
+# But you can use your own message(s) by assigning a list of strings to the messages keyword argument.
+>>> my_msgs = ['Hi there, hope you have a great birthday!']
+>>> fbot(username, password, messages=my_msgs).start()
+
 ```
 You can get an instance of the bot and trigger each stage individually.
 
@@ -29,7 +35,7 @@ You can get an instance of the bot and trigger each stage individually.
 >>> from fb_bday_bot import facebookBirthdayBot as fbot
 
 # Get an instance of the class.
->>> my_bot = fbot(username, password, messages)
+>>> my_bot = fbot(username, password)
 
 # Open facebook.
 >>> my_bot.open_page()
